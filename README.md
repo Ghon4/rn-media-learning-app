@@ -17,19 +17,20 @@ Expo (SDK 54) + TypeScript app for learning React Native: **bottom tabs**, **nes
    npm install
    ```
 
-2. Copy environment template and add your **TMDB API key** (free):
+2. Copy environment template and add your **TMDB** credentials (free):
 
    ```bash
    cp .env.example .env
    ```
 
-   Edit `.env`:
+   Edit `.env` — use the **read access token** (Bearer) and/or **API key** from [TMDB API settings](https://www.themoviedb.org/settings/api):
 
    ```env
+   EXPO_PUBLIC_TMDB_READ_ACCESS_TOKEN=your_token_here
    EXPO_PUBLIC_TMDB_API_KEY=your_key_here
    ```
 
-   Register at [The Movie Database — API settings](https://www.themoviedb.org/settings/api).
+   If both are set, the token is used for requests. Never commit `.env` (it is gitignored).
 
 3. Start the dev server:
 

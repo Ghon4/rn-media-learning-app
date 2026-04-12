@@ -19,15 +19,21 @@ function buildLogUrl(config: InternalAxiosRequestConfig): string {
   return redactUrl(`${base}${path}${qs}`);
 }
 
-export function createTmdbHttpClient(apiKey: string): AxiosInstance {
+export function createTmdbHttpClient(options: {
+  apiKey?: string;
+  readAccessToken?: string;
+}): AxiosInstance {
+  const token = options.readAccessToken?.trim() ?? '';
+  const apiKey = options.apiKey?.trim() ?? '';
+  const useBearer = token.length > 0;
+
   const client = axios.create({
     baseURL: TMDB_BASE_URL,
     timeout: 20_000,
-    params: {
-      api_key: apiKey,
-    },
+    params: useBearer ? {} : { api_key: apiKey },
     headers: {
       Accept: 'application/json',
+      ...(useBearer ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 
@@ -85,15 +91,16 @@ export function createTmdbHttpClient(apiKey: string): AxiosInstance {
   return client;
 }
 
-const key = process.env.EXPO_PUBLIC_TMDB_API_KEY ?? '';
+const apiKey = process.env.EXPO_PUBLIC_TMDB_API_KEY ?? '';
+const readAccessToken = process.env.EXPO_PUBLIC_TMDB_READ_ACCESS_TOKEN ?? '';
 
-if (__DEV__ && !key) {
+if (__DEV__ && !apiKey.trim() && !readAccessToken.trim()) {
   console.warn(
-    '[TMDB] EXPO_PUBLIC_TMDB_API_KEY is empty. Add it to .env (see .env.example).',
+    '[TMDB] Set EXPO_PUBLIC_TMDB_READ_ACCESS_TOKEN and/or EXPO_PUBLIC_TMDB_API_KEY in .env (see .env.example).',
   );
 }
 
-export const tmdbHttp = createTmdbHttpClient(key);
+export const tmdbHttp = createTmdbHttpClient({ apiKey, readAccessToken });
 
 async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
