@@ -1,19 +1,29 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import { ErrorBoundary } from 'react-error-boundary';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ThemePreferenceProvider, useThemePreference } from './src/context/ThemePreferenceContext';
-import { WatchlistProvider } from './src/context/WatchlistContext';
+import { TrailerPreferenceProvider } from './src/context/TrailerPreferenceContext';
 import { linking } from './src/navigation/linking';
 import { TabNavigator } from './src/navigation/TabNavigator';
+import { queryClient } from './src/query/queryClient';
+import { AppErrorFallback } from './src/shared/components/AppErrorFallback';
+import { OfflineBanner } from './src/shared/components/OfflineBanner';
+import { WatchlistRehydrate } from './src/store/WatchlistRehydrate';
 
 function NavigationRoot() {
   const { navigationTheme, resolvedScheme } = useThemePreference();
   return (
     <NavigationContainer theme={navigationTheme} linking={linking}>
-      <TabNavigator />
-      <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />
+      <WatchlistRehydrate />
+      <ErrorBoundary FallbackComponent={AppErrorFallback}>
+        <OfflineBanner />
+        <TabNavigator />
+        <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />
+      </ErrorBoundary>
     </NavigationContainer>
   );
 }
@@ -23,9 +33,11 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemePreferenceProvider>
-          <WatchlistProvider>
-            <NavigationRoot />
-          </WatchlistProvider>
+          <TrailerPreferenceProvider>
+            <QueryClientProvider client={queryClient}>
+              <NavigationRoot />
+            </QueryClientProvider>
+          </TrailerPreferenceProvider>
         </ThemePreferenceProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

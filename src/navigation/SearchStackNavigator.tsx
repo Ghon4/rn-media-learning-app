@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { MediaDetailScreen } from '../features/detail/MediaDetailScreen';
+import { PersonDetailScreen } from '../features/person/PersonDetailScreen';
 import { SearchScreen } from '../features/search/SearchScreen';
 
 import type { SearchStackParamList } from './types';
@@ -16,6 +17,13 @@ export function SearchStackNavigator() {
         component={MediaDetailScreen}
         options={({ route }) => ({
           title: route.params.title ?? 'Details',
+        })}
+      />
+      <Stack.Screen
+        name="PersonDetail"
+        component={PersonDetailScreen}
+        options={({ route }) => ({
+          title: route.params.name ?? 'Person',
         })}
       />
     </Stack.Navigator>

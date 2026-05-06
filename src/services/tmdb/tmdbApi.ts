@@ -1,9 +1,13 @@
 import { getWithRetry, tmdbHttp } from '../api/httpClient';
 
 import type {
+  DiscoverMovieSort,
   MovieDetail,
   MovieListItem,
+  MovieTvCredits,
   Paginated,
+  PersonCombinedCredits,
+  PersonProfile,
   SearchMultiResult,
   TvDetail,
   TvListItem,
@@ -70,4 +74,43 @@ export async function fetchMovieVideos(id: number) {
 
 export async function fetchTvVideos(id: number) {
   return getWithRetry(() => tmdbHttp.get<VideosResponse>(`/tv/${id}/videos`).then((r) => r.data));
+}
+
+export async function fetchMovieGenres() {
+  return getWithRetry(() =>
+    tmdbHttp.get<{ genres: { id: number; name: string }[] }>('/genre/movie/list').then((r) => r.data),
+  );
+}
+
+export async function discoverMovies(params: {
+  page?: number;
+  with_genres?: string;
+  primary_release_year?: number;
+  sort_by?: DiscoverMovieSort;
+}) {
+  return getWithRetry(() =>
+    tmdbHttp.get<Paginated<MovieListItem>>('/discover/movie', { params }).then((r) => r.data),
+  );
+}
+
+export async function fetchMovieCredits(id: number) {
+  return getWithRetry(() =>
+    tmdbHttp.get<MovieTvCredits>(`/movie/${id}/credits`).then((r) => r.data),
+  );
+}
+
+export async function fetchTvCredits(id: number) {
+  return getWithRetry(() =>
+    tmdbHttp.get<MovieTvCredits>(`/tv/${id}/credits`).then((r) => r.data),
+  );
+}
+
+export async function fetchPersonProfile(id: number) {
+  return getWithRetry(() => tmdbHttp.get<PersonProfile>(`/person/${id}`).then((r) => r.data));
+}
+
+export async function fetchPersonCombinedCredits(id: number) {
+  return getWithRetry(() =>
+    tmdbHttp.get<PersonCombinedCredits>(`/person/${id}/combined_credits`).then((r) => r.data),
+  );
 }

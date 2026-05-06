@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
+import { i18n } from '../i18n';
+
 import { HomeStackNavigator } from './HomeStackNavigator';
 import { LibraryStackNavigator } from './LibraryStackNavigator';
 import { SearchStackNavigator } from './SearchStackNavigator';
@@ -26,10 +28,26 @@ export function TabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="HomeTab" component={HomeStackNavigator} options={{ title: 'Home' }} />
-      <Tab.Screen name="SearchTab" component={SearchStackNavigator} options={{ title: 'Search' }} />
-      <Tab.Screen name="LibraryTab" component={LibraryStackNavigator} options={{ title: 'Library' }} />
-      <Tab.Screen name="SettingsTab" component={SettingsStackNavigator} options={{ title: 'Settings' }} />
+      <Tab.Screen
+        name="HomeTab"
+        component={HomeStackNavigator}
+        options={{ title: i18n.t('tabs.home'), tabBarLabel: i18n.t('tabs.home') }}
+      />
+      <Tab.Screen
+        name="SearchTab"
+        component={SearchStackNavigator}
+        options={{ title: i18n.t('tabs.search'), tabBarLabel: i18n.t('tabs.search') }}
+      />
+      <Tab.Screen
+        name="LibraryTab"
+        component={LibraryStackNavigator}
+        options={{ title: i18n.t('tabs.library'), tabBarLabel: i18n.t('tabs.library') }}
+      />
+      <Tab.Screen
+        name="SettingsTab"
+        component={SettingsStackNavigator}
+        options={{ title: i18n.t('tabs.settings'), tabBarLabel: i18n.t('tabs.settings') }}
+      />
     </Tab.Navigator>
   );
 }

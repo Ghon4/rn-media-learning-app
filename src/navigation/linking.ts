@@ -13,19 +13,25 @@ export const linking: LinkingOptions<RootTabParamList> = {
         path: 'home',
         screens: {
           Home: '',
+          Discover: 'discover',
           MediaDetail: 'media/:mediaType/:id',
+          PersonDetail: 'person/:id',
         },
       },
       SearchTab: {
         path: 'search',
         screens: {
           Search: '',
+          MediaDetail: 'media/:mediaType/:id',
+          PersonDetail: 'person/:id',
         },
       },
       LibraryTab: {
         path: 'library',
         screens: {
           Library: '',
+          MediaDetail: 'media/:mediaType/:id',
+          PersonDetail: 'person/:id',
         },
       },
       SettingsTab: {

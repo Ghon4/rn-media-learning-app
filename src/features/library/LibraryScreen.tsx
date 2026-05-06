@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import { useWatchlist } from '../../context/WatchlistContext';
+import { useWatchlist } from '../../store/watchlistStore';
 import type { LibraryStackParamList } from '../../navigation/types';
 import { posterUrl } from '../../services/tmdb/constants';
 import { Screen } from '../../shared/components/Screen';

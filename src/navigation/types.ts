@@ -8,20 +8,22 @@ export type MediaDetailParams = {
   title?: string;
 };
 
-export type HomeStackParamList = {
-  Home: undefined;
-  MediaDetail: MediaDetailParams;
+export type PersonDetailParams = {
+  id: number | string;
+  name?: string;
 };
 
-export type SearchStackParamList = {
-  Search: undefined;
+/** Shared routes used from media detail across Home, Search, and Library stacks. */
+export type MediaFlowParamList = {
   MediaDetail: MediaDetailParams;
+  PersonDetail: PersonDetailParams;
 };
 
-export type LibraryStackParamList = {
-  Library: undefined;
-  MediaDetail: MediaDetailParams;
-};
+export type HomeStackParamList = { Home: undefined; Discover: undefined } & MediaFlowParamList;
+
+export type SearchStackParamList = { Search: undefined } & MediaFlowParamList;
+
+export type LibraryStackParamList = { Library: undefined } & MediaFlowParamList;
 
 export type SettingsStackParamList = {
   Settings: undefined;

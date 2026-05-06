@@ -1,16 +1,21 @@
-import { useNavigation } from '@react-navigation/native';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigation, useTheme } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Image } from 'expo-image';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 
+import { i18n } from '../../i18n';
+import type { HomeStackParamList } from '../../navigation/types';
 import { isAppError } from '../../services/api/errors';
 import { backdropUrl } from '../../services/tmdb/constants';
 import {
@@ -18,103 +23,96 @@ import {
   fetchPopularTv,
   fetchTrendingMovies,
 } from '../../services/tmdb/tmdbApi';
-import type { MovieListItem, TvListItem } from '../../services/tmdb/types';
 import { ErrorState } from '../../shared/components/ErrorState';
 import { MediaCard } from '../../shared/components/MediaCard';
 import { Screen } from '../../shared/components/Screen';
 import { SectionHeader } from '../../shared/components/SectionHeader';
 
-import type { HomeStackParamList } from '../../navigation/types';
-
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
 
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const { colors } = useTheme();
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const [trending, setTrending] = useState<MovieListItem[]>([]);
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => navigation.navigate('Discover')}
+          style={styles.headerBtn}
+          accessibilityRole="button"
+          accessibilityLabel={i18n.t('home.discover')}
+        >
+          <Text style={[styles.headerBtnText, { color: colors.primary }]}>{i18n.t('home.discover')}</Text>
+        </Pressable>
+      ),
+    });
+  }, [colors.primary, navigation]);
 
-  const [movies, setMovies] = useState<MovieListItem[]>([]);
-  const [moviePage, setMoviePage] = useState(1);
-  const [movieTotalPages, setMovieTotalPages] = useState(1);
-  const [movieLoadingMore, setMovieLoadingMore] = useState(false);
+  const trendingQuery = useQuery({
+    queryKey: ['tmdb', 'trending', 'movie', 'day'],
+    queryFn: fetchTrendingMovies,
+  });
 
-  const [tv, setTv] = useState<TvListItem[]>([]);
-  const [tvPage, setTvPage] = useState(1);
-  const [tvTotalPages, setTvTotalPages] = useState(1);
-  const [tvLoadingMore, setTvLoadingMore] = useState(false);
+  const moviesInfinite = useInfiniteQuery({
+    queryKey: ['tmdb', 'popularMovies'],
+    queryFn: ({ pageParam }) => fetchPopularMovies(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page < last.total_pages ? last.page + 1 : undefined),
+  });
 
-  const loadInitial = useCallback(async () => {
-    setError(null);
-    try {
-      const [t, m, tvp] = await Promise.all([
-        fetchTrendingMovies(),
-        fetchPopularMovies(1),
-        fetchPopularTv(1),
-      ]);
-      setTrending(t.results);
-      setMovies(m.results);
-      setMoviePage(1);
-      setMovieTotalPages(m.total_pages);
-      setTv(tvp.results);
-      setTvPage(1);
-      setTvTotalPages(tvp.total_pages);
-    } catch (e) {
-      const msg = isAppError(e) ? e.message : 'Something went wrong';
-      setError(msg);
-    }
-  }, []);
+  const tvInfinite = useInfiniteQuery({
+    queryKey: ['tmdb', 'popularTv'],
+    queryFn: ({ pageParam }) => fetchPopularTv(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page < last.total_pages ? last.page + 1 : undefined),
+  });
 
-  useEffect(() => {
-    void loadInitial();
-  }, [loadInitial]);
+  const trending = trendingQuery.data?.results ?? [];
+  const movies = moviesInfinite.data?.pages.flatMap((p) => p.results) ?? [];
+  const tv = tvInfinite.data?.pages.flatMap((p) => p.results) ?? [];
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadInitial();
-    setRefreshing(false);
-  }, [loadInitial]);
-
-  const loadMoreMovies = useCallback(async () => {
-    if (movieLoadingMore || moviePage >= movieTotalPages) return;
-    setMovieLoadingMore(true);
     try {
-      const next = moviePage + 1;
-      const data = await fetchPopularMovies(next);
-      setMovies((prev) => [...prev, ...data.results]);
-      setMoviePage(next);
-      setMovieTotalPages(data.total_pages);
-    } catch {
-      /* ignore pagination errors */
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['tmdb', 'trending', 'movie', 'day'] }),
+        queryClient.invalidateQueries({ queryKey: ['tmdb', 'popularMovies'] }),
+        queryClient.invalidateQueries({ queryKey: ['tmdb', 'popularTv'] }),
+      ]);
     } finally {
-      setMovieLoadingMore(false);
+      setRefreshing(false);
     }
-  }, [movieLoadingMore, moviePage, movieTotalPages]);
+  }, [queryClient]);
 
-  const loadMoreTv = useCallback(async () => {
-    if (tvLoadingMore || tvPage >= tvTotalPages) return;
-    setTvLoadingMore(true);
-    try {
-      const next = tvPage + 1;
-      const data = await fetchPopularTv(next);
-      setTv((prev) => [...prev, ...data.results]);
-      setTvPage(next);
-      setTvTotalPages(data.total_pages);
-    } catch {
-      /* ignore */
-    } finally {
-      setTvLoadingMore(false);
+  const loadMoreMovies = useCallback(() => {
+    if (moviesInfinite.hasNextPage && !moviesInfinite.isFetchingNextPage) {
+      void moviesInfinite.fetchNextPage();
     }
-  }, [tvLoadingMore, tvPage, tvTotalPages]);
+  }, [moviesInfinite]);
+
+  const loadMoreTv = useCallback(() => {
+    if (tvInfinite.hasNextPage && !tvInfinite.isFetchingNextPage) {
+      void tvInfinite.fetchNextPage();
+    }
+  }, [tvInfinite]);
 
   const hero = trending[0];
   const heroBackdrop = backdropUrl(hero?.backdrop_path ?? hero?.poster_path ?? undefined);
 
-  if (error && trending.length === 0 && movies.length === 0) {
+  const loadError =
+    trendingQuery.isError && trending.length === 0 && movies.length === 0
+      ? isAppError(trendingQuery.error)
+        ? trendingQuery.error.message
+        : 'Something went wrong'
+      : null;
+
+  if (loadError) {
     return (
       <Screen>
-        <ErrorState message={error} onRetry={() => void loadInitial()} />
+        <ErrorState message={loadError} onRetry={() => void trendingQuery.refetch()} />
       </Screen>
     );
   }
@@ -154,6 +152,13 @@ export function HomeScreen() {
           )}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.hList}
+          ListEmptyComponent={
+            trendingQuery.isLoading ? (
+              <View style={styles.inlineSpinner}>
+                <ActivityIndicator />
+              </View>
+            ) : null
+          }
         />
 
         <SectionHeader title="Popular movies" />
@@ -177,9 +182,9 @@ export function HomeScreen() {
             />
           )}
           onEndReachedThreshold={0.4}
-          onEndReached={() => void loadMoreMovies()}
+          onEndReached={() => loadMoreMovies()}
           ListFooterComponent={
-            movieLoadingMore ? (
+            moviesInfinite.isFetchingNextPage ? (
               <View style={styles.footerSpinner}>
                 <ActivityIndicator />
               </View>
@@ -187,6 +192,13 @@ export function HomeScreen() {
           }
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.hList}
+          ListEmptyComponent={
+            moviesInfinite.isLoading ? (
+              <View style={styles.inlineSpinner}>
+                <ActivityIndicator />
+              </View>
+            ) : null
+          }
         />
 
         <SectionHeader title="Popular TV" />
@@ -210,9 +222,9 @@ export function HomeScreen() {
             />
           )}
           onEndReachedThreshold={0.4}
-          onEndReached={() => void loadMoreTv()}
+          onEndReached={() => loadMoreTv()}
           ListFooterComponent={
-            tvLoadingMore ? (
+            tvInfinite.isFetchingNextPage ? (
               <View style={styles.footerSpinner}>
                 <ActivityIndicator />
               </View>
@@ -220,6 +232,13 @@ export function HomeScreen() {
           }
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.hListBottom}
+          ListEmptyComponent={
+            tvInfinite.isLoading ? (
+              <View style={styles.inlineSpinner}>
+                <ActivityIndicator />
+              </View>
+            ) : null
+          }
         />
       </ScrollView>
     </Screen>
@@ -227,6 +246,14 @@ export function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  headerBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
   heroWrap: {
     height: 200,
     marginHorizontal: 16,
@@ -253,5 +280,10 @@ const styles = StyleSheet.create({
     height: 200,
     justifyContent: 'center',
     paddingRight: 16,
+  },
+  inlineSpinner: {
+    height: 200,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
 });

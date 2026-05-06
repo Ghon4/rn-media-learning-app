@@ -66,3 +66,43 @@ export type VideoResult = {
 export type VideosResponse = {
   results: VideoResult[];
 };
+
+export type CreditCastMember = {
+  id: number;
+  name: string;
+  character?: string;
+  profile_path: string | null;
+  order?: number;
+};
+
+export type MovieTvCredits = {
+  cast: CreditCastMember[];
+};
+
+export type DiscoverMovieSort =
+  | 'popularity.desc'
+  | 'vote_average.desc'
+  | 'primary_release_date.desc';
+
+export type PersonProfile = {
+  id: number;
+  name: string;
+  biography: string;
+  profile_path: string | null;
+  birthday?: string | null;
+  place_of_birth?: string | null;
+};
+
+export type PersonCastCredit = {
+  id: number;
+  media_type: 'movie' | 'tv';
+  title?: string;
+  name?: string;
+  poster_path: string | null;
+  release_date?: string;
+  first_air_date?: string;
+};
+
+export type PersonCombinedCredits = {
+  cast: PersonCastCredit[];
+};

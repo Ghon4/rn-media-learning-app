@@ -28,5 +28,6 @@ module.exports = {
     web: {
       favicon: './assets/favicon.png',
     },
+    plugins: ['expo-localization'],
   },
 };

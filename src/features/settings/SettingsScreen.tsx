@@ -8,8 +8,12 @@ import {
   type ThemePreference,
   useThemePreference,
 } from '../../context/ThemePreferenceContext';
-import { useWatchlist, WATCHLIST_STORAGE_KEY } from '../../context/WatchlistContext';
+import {
+  TRAILER_EXTERNAL_PREF_KEY,
+  useTrailerPreference,
+} from '../../context/TrailerPreferenceContext';
 import type { SettingsStackParamList } from '../../navigation/types';
+import { useWatchlist, WATCHLIST_STORAGE_KEY } from '../../store/watchlistStore';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'Settings'>;
 
@@ -46,6 +50,7 @@ export function SettingsScreen() {
   const { colors } = useTheme();
   const { preference, setPreference } = useThemePreference();
   const { clearAll } = useWatchlist();
+  const { preferExternalTrailer, setPreferExternalTrailer } = useTrailerPreference();
 
   const clearLocalData = () => {
     Alert.alert(
@@ -58,9 +63,14 @@ export function SettingsScreen() {
           style: 'destructive',
           onPress: () => {
             void (async () => {
-              await AsyncStorage.multiRemove([WATCHLIST_STORAGE_KEY, THEME_PREFERENCE_STORAGE_KEY]);
+              await AsyncStorage.multiRemove([
+                WATCHLIST_STORAGE_KEY,
+                THEME_PREFERENCE_STORAGE_KEY,
+                TRAILER_EXTERNAL_PREF_KEY,
+              ]);
               clearAll();
               setPreference('system');
+              setPreferExternalTrailer(false);
             })();
           },
         },
@@ -79,6 +89,23 @@ export function SettingsScreen() {
         <ThemeChip label="System" selected={preference === 'system'} onPress={() => setPref('system')} />
         <ThemeChip label="Light" selected={preference === 'light'} onPress={() => setPref('light')} />
         <ThemeChip label="Dark" selected={preference === 'dark'} onPress={() => setPref('dark')} />
+      </View>
+
+      <Text style={[styles.section, { color: colors.text, marginTop: 24 }]}>Trailers</Text>
+      <Text style={[styles.hint, { color: colors.text, opacity: 0.65, marginBottom: 10 }]}>
+        Choose how trailer buttons open on title details.
+      </Text>
+      <View style={styles.row}>
+        <ThemeChip
+          label="In app"
+          selected={!preferExternalTrailer}
+          onPress={() => setPreferExternalTrailer(false)}
+        />
+        <ThemeChip
+          label="YouTube"
+          selected={preferExternalTrailer}
+          onPress={() => setPreferExternalTrailer(true)}
+        />
       </View>
 
       <Text style={[styles.section, { color: colors.text, marginTop: 24 }]}>Information</Text>
@@ -117,6 +144,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     opacity: 0.8,
+  },
+  hint: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   row: {
     flexDirection: 'row',

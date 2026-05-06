@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { MediaDetailScreen } from '../features/detail/MediaDetailScreen';
 import { LibraryScreen } from '../features/library/LibraryScreen';
+import { PersonDetailScreen } from '../features/person/PersonDetailScreen';
 
 import type { LibraryStackParamList } from './types';
 
@@ -16,6 +17,13 @@ export function LibraryStackNavigator() {
         component={MediaDetailScreen}
         options={({ route }) => ({
           title: route.params.title ?? 'Details',
+        })}
+      />
+      <Stack.Screen
+        name="PersonDetail"
+        component={PersonDetailScreen}
+        options={({ route }) => ({
+          title: route.params.name ?? 'Person',
         })}
       />
     </Stack.Navigator>

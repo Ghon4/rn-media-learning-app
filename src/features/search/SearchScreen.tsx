@@ -10,39 +10,12 @@ import type { SearchStackParamList } from '../../navigation/types';
 import { isAppError } from '../../services/api/errors';
 import { posterUrl } from '../../services/tmdb/constants';
 import { searchMulti } from '../../services/tmdb/tmdbApi';
-import type { SearchMultiResult } from '../../services/tmdb/types';
 import { ErrorState } from '../../shared/components/ErrorState';
 import { Screen } from '../../shared/components/Screen';
 
+import { mapSearchMultiResults, type SearchRow } from './searchMappers';
+
 type Nav = NativeStackNavigationProp<SearchStackParamList, 'Search'>;
-
-type Row =
-  | { kind: 'movie'; id: number; title: string; posterPath: string | null; subtitle?: string }
-  | { kind: 'tv'; id: number; title: string; posterPath: string | null; subtitle?: string };
-
-function mapResults(results: SearchMultiResult[]): Row[] {
-  const rows: Row[] = [];
-  for (const r of results) {
-    if (r.media_type === 'movie' && 'title' in r) {
-      rows.push({
-        kind: 'movie',
-        id: r.id,
-        title: r.title,
-        posterPath: r.poster_path,
-        subtitle: r.release_date?.slice(0, 4),
-      });
-    } else if (r.media_type === 'tv' && 'name' in r) {
-      rows.push({
-        kind: 'tv',
-        id: r.id,
-        title: r.name,
-        posterPath: r.poster_path,
-        subtitle: r.first_air_date?.slice(0, 4),
-      });
-    }
-  }
-  return rows;
-}
 
 export function SearchScreen() {
   const navigation = useNavigation<Nav>();
@@ -51,7 +24,7 @@ export function SearchScreen() {
   const [query, setQuery] = useState('');
   const debounced = useDebouncedValue(query, 400);
 
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<SearchRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -71,7 +44,7 @@ export function SearchScreen() {
     setError(null);
     try {
       const data = await searchMulti(debounced, nextPage);
-      const mapped = mapResults(data.results);
+      const mapped = mapSearchMultiResults(data.results);
       setTotalPages(data.total_pages);
       setPage(nextPage);
       setRows((prev) => (mode === 'append' ? [...prev, ...mapped] : mapped));

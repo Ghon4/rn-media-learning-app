@@ -1,32 +1,39 @@
 import { RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { useWatchlist } from '../../context/WatchlistContext';
-import type { HomeStackParamList } from '../../navigation/types';
+import { useTrailerPreference } from '../../context/TrailerPreferenceContext';
+import { useWatchlist } from '../../store/watchlistStore';
+import type { MediaFlowParamList } from '../../navigation/types';
 import { isAppError } from '../../services/api/errors';
 import { backdropUrl, posterUrl } from '../../services/tmdb/constants';
 import {
+  fetchMovieCredits,
   fetchMovieDetail,
   fetchMovieVideos,
   fetchSimilarMovies,
   fetchSimilarTv,
+  fetchTvCredits,
   fetchTvDetail,
   fetchTvVideos,
 } from '../../services/tmdb/tmdbApi';
-import type { MediaType, MovieListItem, TvListItem } from '../../services/tmdb/types';
+import type { CreditCastMember, MediaType, MovieListItem, TvListItem } from '../../services/tmdb/types';
+import { tmdbWebUrl } from '../../utils/tmdbUrls';
 import { ErrorState } from '../../shared/components/ErrorState';
 import { MediaCard } from '../../shared/components/MediaCard';
 import { Screen } from '../../shared/components/Screen';
@@ -36,7 +43,7 @@ type DetailRoute = RouteProp<
   'MediaDetail'
 >;
 
-type MediaDetailNav = NativeStackNavigationProp<HomeStackParamList, 'MediaDetail'>;
+type MediaDetailNav = NativeStackNavigationProp<MediaFlowParamList, 'MediaDetail'>;
 
 function normalizeParams(params: DetailRoute['params']) {
   const rawId = params.id;
@@ -52,6 +59,7 @@ export function MediaDetailScreen() {
   const route = useRoute<DetailRoute>();
   const { id, mediaType, title } = normalizeParams(route.params);
   const { isInWatchlist, toggle } = useWatchlist();
+  const { preferExternalTrailer } = useTrailerPreference();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,16 +74,18 @@ export function MediaDetailScreen() {
   const [similarTv, setSimilarTv] = useState<TvListItem[]>([]);
   const [youtubeKey, setYoutubeKey] = useState<string | null>(null);
   const [trailerOpen, setTrailerOpen] = useState(false);
+  const [cast, setCast] = useState<CreditCastMember[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       if (mediaType === 'movie') {
-        const [d, sim, vids] = await Promise.all([
+        const [d, sim, vids, creds] = await Promise.all([
           fetchMovieDetail(id),
           fetchSimilarMovies(id),
           fetchMovieVideos(id),
+          fetchMovieCredits(id),
         ]);
         setDetailTitle(d.title);
         setOverview(d.overview);
@@ -91,11 +101,16 @@ export function MediaDetailScreen() {
           (x) => x.site === 'YouTube' && (x.type === 'Trailer' || x.type === 'Teaser'),
         );
         setYoutubeKey(trailer?.key ?? null);
+        const sortedCast = [...creds.cast]
+          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+          .slice(0, 14);
+        setCast(sortedCast);
       } else {
-        const [d, sim, vids] = await Promise.all([
+        const [d, sim, vids, creds] = await Promise.all([
           fetchTvDetail(id),
           fetchSimilarTv(id),
           fetchTvVideos(id),
+          fetchTvCredits(id),
         ]);
         setDetailTitle(d.name);
         setOverview(d.overview);
@@ -114,6 +129,10 @@ export function MediaDetailScreen() {
           (x) => x.site === 'YouTube' && (x.type === 'Trailer' || x.type === 'Teaser'),
         );
         setYoutubeKey(trailer?.key ?? null);
+        const sortedCast = [...creds.cast]
+          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+          .slice(0, 14);
+        setCast(sortedCast);
       }
     } catch (e) {
       setError(isAppError(e) ? e.message : 'Failed to load');
@@ -157,6 +176,20 @@ export function MediaDetailScreen() {
       id: m.id,
     }));
   }, [mediaType, similarMovies, similarTv]);
+
+  const onShare = useCallback(async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const url = tmdbWebUrl(mediaType, id);
+    try {
+      await Share.share(
+        Platform.OS === 'ios'
+          ? { url, title: detailTitle }
+          : { message: `${detailTitle}\n${url}`, url },
+      );
+    } catch {
+      /* user dismissed share sheet */
+    }
+  }, [mediaType, id, detailTitle]);
 
   if (loading && !detailTitle && !overview) {
     return (
@@ -222,20 +255,47 @@ export function MediaDetailScreen() {
               styles.primaryBtn,
               { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
             ]}
-            onPress={() =>
+            onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               toggle({
                 mediaType,
                 id,
                 title: detailTitle,
                 posterPath,
-              })
-            }
+              });
+            }}
             accessibilityRole="button"
             accessibilityLabel={inList ? 'Remove from watchlist' : 'Add to watchlist'}
           >
             <Text style={styles.primaryBtnText}>{inList ? 'In watchlist' : 'Add to watchlist'}</Text>
           </Pressable>
-          {youtubeKey ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.secondaryBtn,
+              { borderColor: colors.border, opacity: pressed ? 0.9 : 1 },
+            ]}
+            onPress={() => void onShare()}
+            accessibilityRole="button"
+            accessibilityLabel="Share this title"
+          >
+            <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Share</Text>
+          </Pressable>
+          {youtubeKey && preferExternalTrailer ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.secondaryBtn,
+                { borderColor: colors.border, opacity: pressed ? 0.9 : 1 },
+              ]}
+              onPress={() =>
+                void Linking.openURL(`https://www.youtube.com/watch?v=${youtubeKey}`)
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Watch trailer on YouTube"
+            >
+              <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Watch trailer</Text>
+            </Pressable>
+          ) : null}
+          {youtubeKey && !preferExternalTrailer ? (
             <Pressable
               style={({ pressed }) => [
                 styles.secondaryBtn,
@@ -248,7 +308,7 @@ export function MediaDetailScreen() {
               <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Trailer (in app)</Text>
             </Pressable>
           ) : null}
-          {youtubeKey ? (
+          {youtubeKey && !preferExternalTrailer ? (
             <Pressable
               style={({ pressed }) => [
                 styles.secondaryBtn,
@@ -266,6 +326,51 @@ export function MediaDetailScreen() {
         </View>
 
         <Text style={[styles.overview, { color: colors.text }]}>{overview}</Text>
+
+        {cast.length > 0 ? (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Cast</Text>
+            <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
+              <View style={styles.castRow}>
+                {cast.map((person) => {
+                  const uri = posterUrl(person.profile_path ?? undefined);
+                  return (
+                    <Pressable
+                      key={person.id}
+                      style={styles.castItem}
+                      onPress={() =>
+                        navigation.navigate('PersonDetail', { id: person.id, name: person.name })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`${person.name}${person.character ? ` as ${person.character}` : ''}`}
+                    >
+                      {uri ? (
+                        <Image source={{ uri }} style={styles.castAvatar} contentFit="cover" />
+                      ) : (
+                        <View style={[styles.castAvatar, { backgroundColor: colors.border }]}>
+                          <Text style={[styles.castInitial, { color: colors.text }]} numberOfLines={1}>
+                            {person.name.slice(0, 1)}
+                          </Text>
+                        </View>
+                      )}
+                      <Text style={[styles.castName, { color: colors.text }]} numberOfLines={2}>
+                        {person.name}
+                      </Text>
+                      {person.character ? (
+                        <Text
+                          style={[styles.castCharacter, { color: colors.text }]}
+                          numberOfLines={2}
+                        >
+                          {person.character}
+                        </Text>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </>
+        ) : null}
 
         {similarData.length > 0 ? (
           <>
@@ -410,5 +515,39 @@ const styles = StyleSheet.create({
   closeBtnText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  castRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    gap: 12,
+    paddingBottom: 4,
+  },
+  castItem: {
+    width: 88,
+  },
+  castAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  castInitial: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  castName: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  castCharacter: {
+    marginTop: 2,
+    fontSize: 11,
+    opacity: 0.7,
+    textAlign: 'center',
   },
 });
