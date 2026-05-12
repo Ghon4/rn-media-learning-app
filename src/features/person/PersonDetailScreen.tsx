@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import * as Linking from 'expo-linking';
 import { RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Image } from 'expo-image';
@@ -15,6 +16,7 @@ import {
   View,
 } from 'react-native';
 
+import { i18n } from '../../i18n';
 import type { MediaFlowParamList, PersonDetailParams } from '../../navigation/types';
 import { isAppError } from '../../services/api/errors';
 import { posterUrl } from '../../services/tmdb/constants';
@@ -51,16 +53,31 @@ export function PersonDetailScreen() {
   const invalidId = !Number.isFinite(id);
   const loading = !invalidId && profileQuery.isLoading && !profileQuery.data;
   const error = invalidId
-    ? 'Invalid person id'
+    ? i18n.t('errors.invalidPersonId')
     : profileQuery.isError && !profileQuery.data
       ? isAppError(profileQuery.error)
         ? profileQuery.error.message
-        : 'Failed to load'
+        : i18n.t('errors.loadFailed')
       : null;
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: name || 'Person' });
-  }, [name, navigation]);
+    navigation.setOptions({
+      title: name || 'Person',
+      headerRight:
+        Number.isFinite(id) && !invalidId
+          ? () => (
+              <Pressable
+                onPress={() => void Linking.openURL(tmdbPersonWebUrl(id))}
+                style={{ paddingHorizontal: 12, paddingVertical: 8 }}
+                accessibilityRole="link"
+                accessibilityLabel={i18n.t('person.openTmdb')}
+              >
+                <Text style={{ color: colors.primary, fontWeight: '800' }}>TMDB</Text>
+              </Pressable>
+            )
+          : undefined,
+    });
+  }, [colors.primary, id, invalidId, name, navigation]);
 
   const creditRows = useMemo(() => {
     const cast = creditsQuery.data?.cast ?? [];
@@ -97,7 +114,10 @@ export function PersonDetailScreen() {
     return (
       <Screen>
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.primary} accessibilityLabel="Loading person" />
+          <ActivityIndicator
+            color={colors.primary}
+            accessibilityLabel={i18n.t('person.loading')}
+          />
         </View>
       </Screen>
     );
@@ -148,16 +168,20 @@ export function PersonDetailScreen() {
                     { borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel="Share person link"
+                  accessibilityLabel={i18n.t('person.share')}
                 >
-                  <Text style={[styles.shareBtnText, { color: colors.text }]}>Share</Text>
+                  <Text style={[styles.shareBtnText, { color: colors.text }]}>
+                    {i18n.t('person.share')}
+                  </Text>
                 </Pressable>
               </View>
             </View>
             {p?.biography ? (
               <Text style={[styles.bio, { color: colors.text }]}>{p.biography}</Text>
             ) : null}
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Known for</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {i18n.t('person.knownFor')}
+            </Text>
           </View>
         }
         renderItem={({ item }) => {
