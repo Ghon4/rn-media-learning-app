@@ -19,10 +19,14 @@ import type { HomeStackParamList } from '../../navigation/types';
 import { isAppError } from '../../services/api/errors';
 import { backdropUrl } from '../../services/tmdb/constants';
 import {
+  fetchNowPlayingMovies,
   fetchPopularMovies,
   fetchPopularTv,
+  fetchTopRatedMovies,
   fetchTrendingMovies,
+  fetchUpcomingMovies,
 } from '../../services/tmdb/tmdbApi';
+import { useRecentStore } from '../../store/recentStore';
 import { ErrorState } from '../../shared/components/ErrorState';
 import { MediaCard } from '../../shared/components/MediaCard';
 import { Screen } from '../../shared/components/Screen';
@@ -35,18 +39,34 @@ export function HomeScreen() {
   const { colors } = useTheme();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const recentItems = useRecentStore((s) => s.items);
+  const recentHydrated = useRecentStore((s) => s.hydrated);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable
-          onPress={() => navigation.navigate('Discover')}
-          style={styles.headerBtn}
-          accessibilityRole="button"
-          accessibilityLabel={i18n.t('home.discover')}
-        >
-          <Text style={[styles.headerBtnText, { color: colors.primary }]}>{i18n.t('home.discover')}</Text>
-        </Pressable>
+        <View style={styles.headerDiscover}>
+          <Pressable
+            onPress={() => navigation.navigate('DiscoverMovies')}
+            style={styles.headerBtn}
+            accessibilityRole="button"
+            accessibilityLabel={i18n.t('discover.titleMovies')}
+          >
+            <Text style={[styles.headerBtnText, { color: colors.primary }]}>
+              {i18n.t('home.discoverMovies')}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => navigation.navigate('DiscoverTv')}
+            style={styles.headerBtn}
+            accessibilityRole="button"
+            accessibilityLabel={i18n.t('discover.titleTv')}
+          >
+            <Text style={[styles.headerBtnText, { color: colors.primary }]}>
+              {i18n.t('home.discoverTv')}
+            </Text>
+          </Pressable>
+        </View>
       ),
     });
   }, [colors.primary, navigation]);
@@ -54,6 +74,21 @@ export function HomeScreen() {
   const trendingQuery = useQuery({
     queryKey: ['tmdb', 'trending', 'movie', 'day'],
     queryFn: fetchTrendingMovies,
+  });
+
+  const nowPlayingQuery = useQuery({
+    queryKey: ['tmdb', 'nowPlaying', 1],
+    queryFn: () => fetchNowPlayingMovies(1),
+  });
+
+  const upcomingQuery = useQuery({
+    queryKey: ['tmdb', 'upcoming', 1],
+    queryFn: () => fetchUpcomingMovies(1),
+  });
+
+  const topRatedQuery = useQuery({
+    queryKey: ['tmdb', 'topRated', 1],
+    queryFn: () => fetchTopRatedMovies(1),
   });
 
   const moviesInfinite = useInfiniteQuery({
@@ -73,6 +108,9 @@ export function HomeScreen() {
   const trending = trendingQuery.data?.results ?? [];
   const movies = moviesInfinite.data?.pages.flatMap((p) => p.results) ?? [];
   const tv = tvInfinite.data?.pages.flatMap((p) => p.results) ?? [];
+  const nowPlaying = nowPlayingQuery.data?.results ?? [];
+  const upcoming = upcomingQuery.data?.results ?? [];
+  const topRated = topRatedQuery.data?.results ?? [];
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -81,6 +119,9 @@ export function HomeScreen() {
         queryClient.invalidateQueries({ queryKey: ['tmdb', 'trending', 'movie', 'day'] }),
         queryClient.invalidateQueries({ queryKey: ['tmdb', 'popularMovies'] }),
         queryClient.invalidateQueries({ queryKey: ['tmdb', 'popularTv'] }),
+        queryClient.invalidateQueries({ queryKey: ['tmdb', 'nowPlaying'] }),
+        queryClient.invalidateQueries({ queryKey: ['tmdb', 'upcoming'] }),
+        queryClient.invalidateQueries({ queryKey: ['tmdb', 'topRated'] }),
       ]);
     } finally {
       setRefreshing(false);
@@ -106,7 +147,7 @@ export function HomeScreen() {
     trendingQuery.isError && trending.length === 0 && movies.length === 0
       ? isAppError(trendingQuery.error)
         ? trendingQuery.error.message
-        : 'Something went wrong'
+        : i18n.t('errors.loadFailed')
       : null;
 
   if (loadError) {
@@ -130,7 +171,37 @@ export function HomeScreen() {
           </View>
         ) : null}
 
-        <SectionHeader title="Trending today" />
+        {recentHydrated && recentItems.length > 0 ? (
+          <>
+            <SectionHeader title={i18n.t('home.recent')} />
+            <FlatList
+              horizontal
+              nestedScrollEnabled
+              data={recentItems}
+              keyExtractor={(item) => `r-${item.mediaType}-${item.id}`}
+              renderItem={({ item }) => (
+                <MediaCard
+                  title={item.title}
+                  posterPath={item.posterPath}
+                  subtitle={
+                    item.mediaType === 'movie' ? i18n.t('library.typeMovie') : i18n.t('library.typeTv')
+                  }
+                  onPress={() =>
+                    navigation.navigate('MediaDetail', {
+                      mediaType: item.mediaType,
+                      id: item.id,
+                      title: item.title,
+                    })
+                  }
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hList}
+            />
+          </>
+        ) : null}
+
+        <SectionHeader title={i18n.t('home.trendingToday')} />
         <FlatList
           horizontal
           nestedScrollEnabled
@@ -155,13 +226,106 @@ export function HomeScreen() {
           ListEmptyComponent={
             trendingQuery.isLoading ? (
               <View style={styles.inlineSpinner}>
+                <ActivityIndicator accessibilityLabel={i18n.t('a11y.loading')} />
+              </View>
+            ) : null
+          }
+        />
+
+        <SectionHeader title={i18n.t('home.nowPlaying')} />
+        <FlatList
+          horizontal
+          nestedScrollEnabled
+          data={nowPlaying}
+          keyExtractor={(item) => `np-${item.id}`}
+          renderItem={({ item }) => (
+            <MediaCard
+              title={item.title}
+              posterPath={item.poster_path}
+              subtitle={item.release_date?.slice(0, 4)}
+              onPress={() =>
+                navigation.navigate('MediaDetail', {
+                  mediaType: 'movie',
+                  id: item.id,
+                  title: item.title,
+                })
+              }
+            />
+          )}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hList}
+          ListEmptyComponent={
+            nowPlayingQuery.isLoading ? (
+              <View style={styles.inlineSpinner}>
                 <ActivityIndicator />
               </View>
             ) : null
           }
         />
 
-        <SectionHeader title="Popular movies" />
+        <SectionHeader title={i18n.t('home.upcoming')} />
+        <FlatList
+          horizontal
+          nestedScrollEnabled
+          data={upcoming}
+          keyExtractor={(item) => `up-${item.id}`}
+          renderItem={({ item }) => (
+            <MediaCard
+              title={item.title}
+              posterPath={item.poster_path}
+              subtitle={item.release_date?.slice(0, 4)}
+              onPress={() =>
+                navigation.navigate('MediaDetail', {
+                  mediaType: 'movie',
+                  id: item.id,
+                  title: item.title,
+                })
+              }
+            />
+          )}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hList}
+          ListEmptyComponent={
+            upcomingQuery.isLoading ? (
+              <View style={styles.inlineSpinner}>
+                <ActivityIndicator />
+              </View>
+            ) : null
+          }
+        />
+
+        <SectionHeader title={i18n.t('home.topRated')} />
+        <FlatList
+          horizontal
+          nestedScrollEnabled
+          data={topRated}
+          keyExtractor={(item) => `tr-${item.id}`}
+          renderItem={({ item }) => (
+            <MediaCard
+              title={item.title}
+              posterPath={item.poster_path}
+              subtitle={item.release_date?.slice(0, 4)}
+              onPress={() =>
+                navigation.navigate('MediaDetail', {
+                  mediaType: 'movie',
+                  id: item.id,
+                  title: item.title,
+                })
+              }
+            />
+          )}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hList}
+          ListEmptyComponent={
+            topRatedQuery.isLoading ? (
+              <View style={styles.inlineSpinner}>
+                <ActivityIndicator />
+              </View>
+            ) : null
+          }
+        />
+
+        <SectionHeader title={i18n.t('home.popularMovies')} />
         <FlatList
           horizontal
           nestedScrollEnabled
@@ -201,7 +365,7 @@ export function HomeScreen() {
           }
         />
 
-        <SectionHeader title="Popular TV" />
+        <SectionHeader title={i18n.t('home.popularTv')} />
         <FlatList
           horizontal
           nestedScrollEnabled
@@ -246,12 +410,17 @@ export function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerDiscover: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   headerBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 8,
   },
   headerBtnText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   heroWrap: {

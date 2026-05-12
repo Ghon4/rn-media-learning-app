@@ -3,19 +3,34 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { i18n } from '../../i18n';
 import type { SearchStackParamList } from '../../navigation/types';
 import { isAppError } from '../../services/api/errors';
 import { posterUrl } from '../../services/tmdb/constants';
-import { searchMulti } from '../../services/tmdb/tmdbApi';
+import { searchMovie, searchMulti, searchTv } from '../../services/tmdb/tmdbApi';
 import { ErrorState } from '../../shared/components/ErrorState';
 import { Screen } from '../../shared/components/Screen';
 
-import { mapSearchMultiResults, type SearchRow } from './searchMappers';
+import {
+  mapMovieSearchResults,
+  mapSearchMultiResults,
+  mapTvSearchResults,
+  type SearchRow,
+} from './searchMappers';
 
 type Nav = NativeStackNavigationProp<SearchStackParamList, 'Search'>;
+
+type Scope = 'all' | 'movie' | 'tv';
 
 export function SearchScreen() {
   const navigation = useNavigation<Nav>();
@@ -23,6 +38,7 @@ export function SearchScreen() {
 
   const [query, setQuery] = useState('');
   const debounced = useDebouncedValue(query, 400);
+  const [scope, setScope] = useState<Scope>('all');
 
   const [rows, setRows] = useState<SearchRow[]>([]);
   const [page, setPage] = useState(1);
@@ -32,35 +48,53 @@ export function SearchScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const runSearch = useCallback(async (nextPage: number, mode: 'replace' | 'append') => {
-    if (!debounced.trim()) {
-      setRows([]);
-      setPage(1);
-      setTotalPages(1);
-      return;
-    }
-    if (mode === 'replace') setLoading(true);
-    if (mode === 'append') setLoadingMore(true);
-    setError(null);
-    try {
-      const data = await searchMulti(debounced, nextPage);
-      const mapped = mapSearchMultiResults(data.results);
-      setTotalPages(data.total_pages);
-      setPage(nextPage);
-      setRows((prev) => (mode === 'append' ? [...prev, ...mapped] : mapped));
-    } catch (e) {
-      setError(isAppError(e) ? e.message : 'Search failed');
-      if (mode === 'replace') setRows([]);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-      setRefreshing(false);
-    }
-  }, [debounced]);
+  const runSearch = useCallback(
+    async (nextPage: number, mode: 'replace' | 'append') => {
+      if (!debounced.trim()) {
+        setRows([]);
+        setPage(1);
+        setTotalPages(1);
+        return;
+      }
+      if (mode === 'replace') setLoading(true);
+      if (mode === 'append') setLoadingMore(true);
+      setError(null);
+      try {
+        let data;
+        if (scope === 'movie') {
+          data = await searchMovie(debounced, nextPage);
+          const mapped = mapMovieSearchResults(data.results);
+          setTotalPages(data.total_pages);
+          setPage(nextPage);
+          setRows((prev) => (mode === 'append' ? [...prev, ...mapped] : mapped));
+        } else if (scope === 'tv') {
+          data = await searchTv(debounced, nextPage);
+          const mapped = mapTvSearchResults(data.results);
+          setTotalPages(data.total_pages);
+          setPage(nextPage);
+          setRows((prev) => (mode === 'append' ? [...prev, ...mapped] : mapped));
+        } else {
+          data = await searchMulti(debounced, nextPage);
+          const mapped = mapSearchMultiResults(data.results);
+          setTotalPages(data.total_pages);
+          setPage(nextPage);
+          setRows((prev) => (mode === 'append' ? [...prev, ...mapped] : mapped));
+        }
+      } catch (e) {
+        setError(isAppError(e) ? e.message : i18n.t('search.failed'));
+        if (mode === 'replace') setRows([]);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        setRefreshing(false);
+      }
+    },
+    [debounced, scope],
+  );
 
   useEffect(() => {
     void runSearch(1, 'replace');
-  }, [debounced, runSearch]);
+  }, [debounced, scope, runSearch]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -72,20 +106,54 @@ export function SearchScreen() {
     void runSearch(page + 1, 'append');
   }, [debounced, loading, loadingMore, page, runSearch, totalPages]);
 
+  const scopes: { key: Scope; labelKey: string }[] = [
+    { key: 'all', labelKey: 'search.scopeAll' },
+    { key: 'movie', labelKey: 'search.scopeMovies' },
+    { key: 'tv', labelKey: 'search.scopeTv' },
+  ];
+
   return (
     <Screen>
       <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Movies, TV shows…"
+          placeholder={i18n.t('search.placeholder')}
           placeholderTextColor={`${colors.text}88`}
           style={[styles.input, { color: colors.text }]}
           autoCorrect={false}
           autoCapitalize="none"
           returnKeyType="search"
-          accessibilityLabel="Search query"
+          accessibilityLabel={i18n.t('search.placeholder')}
         />
+      </View>
+
+      <View style={styles.scopeRow}>
+        {scopes.map((s) => (
+          <Pressable
+            key={s.key}
+            onPress={() => setScope(s.key)}
+            style={[
+              styles.scopeChip,
+              {
+                borderColor: colors.border,
+                backgroundColor: scope === s.key ? colors.primary : colors.card,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: scope === s.key }}
+            accessibilityLabel={i18n.t(s.labelKey)}
+          >
+            <Text
+              style={[
+                styles.scopeChipText,
+                { color: scope === s.key ? '#fff' : colors.text },
+              ]}
+            >
+              {i18n.t(s.labelKey)}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       {error && rows.length === 0 && !loading ? (
@@ -95,14 +163,14 @@ export function SearchScreen() {
       {!debounced.trim() ? (
         <View style={styles.hintWrap}>
           <Text style={[styles.hint, { color: colors.text, opacity: 0.7 }]}>
-            Start typing to search TMDB.
+            {i18n.t('search.empty')}
           </Text>
         </View>
       ) : null}
 
       {loading && rows.length === 0 ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primary} accessibilityLabel={i18n.t('a11y.loading')} />
         </View>
       ) : null}
 
@@ -134,7 +202,7 @@ export function SearchScreen() {
                 })
               }
               accessibilityRole="button"
-              accessibilityLabel={`${item.title}, ${item.kind === 'movie' ? 'movie' : 'TV show'}`}
+              accessibilityLabel={`${item.title}, ${item.kind === 'movie' ? i18n.t('library.typeMovie') : i18n.t('library.typeTv')}`}
             >
               <View style={[styles.thumb, { backgroundColor: colors.border }]}>
                 {uri ? (
@@ -149,11 +217,12 @@ export function SearchScreen() {
                 <Text style={[styles.rowTitle, { color: colors.text }]}>{item.title}</Text>
                 {item.subtitle ? (
                   <Text style={[styles.rowSub, { color: colors.text, opacity: 0.65 }]}>
-                    {item.subtitle} · {item.kind === 'movie' ? 'Movie' : 'TV'}
+                    {item.subtitle} ·{' '}
+                    {item.kind === 'movie' ? i18n.t('library.typeMovie') : i18n.t('library.typeTv')}
                   </Text>
                 ) : (
                   <Text style={[styles.rowSub, { color: colors.text, opacity: 0.65 }]}>
-                    {item.kind === 'movie' ? 'Movie' : 'TV'}
+                    {item.kind === 'movie' ? i18n.t('library.typeMovie') : i18n.t('library.typeTv')}
                   </Text>
                 )}
               </View>
@@ -173,6 +242,23 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
+  },
+  scopeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  scopeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  scopeChipText: {
+    fontWeight: '600',
+    fontSize: 13,
   },
   input: {
     paddingVertical: 10,

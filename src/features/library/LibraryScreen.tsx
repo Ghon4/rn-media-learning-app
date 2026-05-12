@@ -2,32 +2,64 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Image } from 'expo-image';
-import { useCallback, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import { useWatchlist } from '../../store/watchlistStore';
+import { i18n } from '../../i18n';
 import type { LibraryStackParamList } from '../../navigation/types';
 import { posterUrl } from '../../services/tmdb/constants';
+import type { WatchStatus } from '../../store/watchlistStore';
+import { useWatchlist } from '../../store/watchlistStore';
 import { Screen } from '../../shared/components/Screen';
 
 type Nav = NativeStackNavigationProp<LibraryStackParamList, 'Library'>;
+
+type FilterKey = 'all' | WatchStatus;
 
 export function LibraryScreen() {
   const navigation = useNavigation<Nav>();
   const { colors } = useTheme();
   const { items, hydrated, remove } = useWatchlist();
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<FilterKey>('all');
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => navigation.navigate('CustomLists')}
+          style={styles.headerBtn}
+          accessibilityRole="button"
+          accessibilityLabel={i18n.t('library.manageLists')}
+        >
+          <Ionicons name="list-outline" size={26} color={colors.primary} />
+        </Pressable>
+      ),
+    });
+  }, [colors.primary, navigation]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 300);
   }, []);
 
+  const filtered = useMemo(() => {
+    if (filter === 'all') return items;
+    return items.filter((i) => i.status === filter);
+  }, [items, filter]);
+
+  const filters: { key: FilterKey; labelKey: string }[] = [
+    { key: 'all', labelKey: 'library.filterAll' },
+    { key: 'wishlist', labelKey: 'library.filterWishlist' },
+    { key: 'watched', labelKey: 'library.filterWatched' },
+    { key: 'dropped', labelKey: 'library.filterDropped' },
+  ];
+
   if (!hydrated) {
     return (
       <Screen>
         <View style={styles.centered}>
-          <Text style={{ color: colors.text }}>Loading your list…</Text>
+          <Text style={{ color: colors.text }}>{i18n.t('library.loading')}</Text>
         </View>
       </Screen>
     );
@@ -35,16 +67,47 @@ export function LibraryScreen() {
 
   return (
     <Screen>
+      <View style={styles.filterBar}>
+        {filters.map((f) => (
+          <Pressable
+            key={f.key}
+            onPress={() => setFilter(f.key)}
+            style={[
+              styles.filterChip,
+              {
+                borderColor: colors.border,
+                backgroundColor: filter === f.key ? colors.primary : colors.card,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: filter === f.key }}
+            accessibilityLabel={i18n.t(f.labelKey)}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                { color: filter === f.key ? '#fff' : colors.text },
+              ]}
+            >
+              {i18n.t(f.labelKey)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       <FlatList
-        data={items}
+        data={filtered}
         keyExtractor={(i) => `${i.mediaType}-${i.id}`}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={items.length === 0 ? styles.emptyContainer : styles.listContent}
+        contentContainerStyle={
+          filtered.length === 0 ? styles.emptyContainer : styles.listContent
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Nothing saved yet</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              {i18n.t('library.emptyTitle')}
+            </Text>
             <Text style={[styles.emptySub, { color: colors.text, opacity: 0.7 }]}>
-              Add titles from details to see them here.
+              {i18n.t('library.emptySub')}
             </Text>
           </View>
         }
@@ -62,7 +125,8 @@ export function LibraryScreen() {
                   })
                 }
                 accessibilityRole="button"
-                accessibilityLabel={`Open ${item.title}`}
+                accessibilityLabel={item.title}
+                accessibilityHint={i18n.t('a11y.opensDetails')}
               >
                 <View style={[styles.thumb, { backgroundColor: colors.border }]}>
                   {uri ? (
@@ -78,14 +142,14 @@ export function LibraryScreen() {
                     {item.title}
                   </Text>
                   <Text style={[styles.meta, { color: colors.text, opacity: 0.65 }]}>
-                    {item.mediaType === 'movie' ? 'Movie' : 'TV'}
+                    {item.mediaType === 'movie' ? i18n.t('library.typeMovie') : i18n.t('library.typeTv')}
                   </Text>
                 </View>
               </Pressable>
               <Pressable
                 onPress={() => remove(item.mediaType, item.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Remove ${item.title} from watchlist`}
+                accessibilityLabel={`${i18n.t('detail.removeWatchlist')} ${item.title}`}
                 hitSlop={12}
                 style={styles.removeBtn}
               >
@@ -100,6 +164,27 @@ export function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  filterChipText: {
+    fontWeight: '600',
+    fontSize: 13,
+  },
   centered: {
     flex: 1,
     alignItems: 'center',

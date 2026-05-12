@@ -1,4 +1,4 @@
-import type { SearchMultiResult } from '../../services/tmdb/types';
+import type { MovieListItem, SearchMultiResult, TvListItem } from '../../services/tmdb/types';
 
 export type SearchRow =
   | { kind: 'movie'; id: number; title: string; posterPath: string | null; subtitle?: string }
@@ -26,4 +26,24 @@ export function mapSearchMultiResults(results: SearchMultiResult[]): SearchRow[]
     }
   }
   return rows;
+}
+
+export function mapMovieSearchResults(results: MovieListItem[]): SearchRow[] {
+  return results.map((r) => ({
+    kind: 'movie',
+    id: r.id,
+    title: r.title,
+    posterPath: r.poster_path,
+    subtitle: r.release_date?.slice(0, 4),
+  }));
+}
+
+export function mapTvSearchResults(results: TvListItem[]): SearchRow[] {
+  return results.map((r) => ({
+    kind: 'tv',
+    id: r.id,
+    title: r.name,
+    posterPath: r.poster_path,
+    subtitle: r.first_air_date?.slice(0, 4),
+  }));
 }

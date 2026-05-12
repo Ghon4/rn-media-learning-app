@@ -1,4 +1,8 @@
-import { mapSearchMultiResults } from '../searchMappers';
+import {
+  mapMovieSearchResults,
+  mapSearchMultiResults,
+  mapTvSearchResults,
+} from '../searchMappers';
 import type { SearchMultiResult } from '../../../services/tmdb/types';
 
 describe('mapSearchMultiResults', () => {
@@ -45,5 +49,53 @@ describe('mapSearchMultiResults', () => {
 
   it('returns empty for empty input', () => {
     expect(mapSearchMultiResults([])).toEqual([]);
+  });
+});
+
+describe('mapMovieSearchResults', () => {
+  it('maps movie rows', () => {
+    const out = mapMovieSearchResults([
+      {
+        id: 1,
+        title: 'X',
+        poster_path: null,
+        overview: '',
+        vote_average: 8,
+        release_date: '2021-03-03',
+      },
+    ]);
+    expect(out).toEqual([
+      {
+        kind: 'movie',
+        id: 1,
+        title: 'X',
+        posterPath: null,
+        subtitle: '2021',
+      },
+    ]);
+  });
+});
+
+describe('mapTvSearchResults', () => {
+  it('maps tv rows', () => {
+    const out = mapTvSearchResults([
+      {
+        id: 2,
+        name: 'Y',
+        poster_path: '/x.jpg',
+        overview: '',
+        vote_average: 7,
+        first_air_date: '2022-01-01',
+      },
+    ]);
+    expect(out).toEqual([
+      {
+        kind: 'tv',
+        id: 2,
+        title: 'Y',
+        posterPath: '/x.jpg',
+        subtitle: '2022',
+      },
+    ]);
   });
 });
