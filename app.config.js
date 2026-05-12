@@ -28,6 +28,15 @@ module.exports = {
     web: {
       favicon: './assets/favicon.png',
     },
-    plugins: ['expo-localization'],
+    plugins: [
+      'expo-localization',
+      '@react-native-community/datetimepicker',
+      [
+        'expo-notifications',
+        {
+          color: '#ffffff',
+        },
+      ],
+    ],
   },
 };
