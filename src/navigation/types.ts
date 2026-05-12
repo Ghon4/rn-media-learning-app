@@ -13,17 +13,31 @@ export type PersonDetailParams = {
   name?: string;
 };
 
+export type TvSeasonParams = {
+  tvId: number | string;
+  seasonNumber: number | string;
+  showTitle?: string;
+};
+
 /** Shared routes used from media detail across Home, Search, and Library stacks. */
 export type MediaFlowParamList = {
   MediaDetail: MediaDetailParams;
   PersonDetail: PersonDetailParams;
+  TvSeason: TvSeasonParams;
 };
 
-export type HomeStackParamList = { Home: undefined; Discover: undefined } & MediaFlowParamList;
+export type HomeStackParamList = {
+  Home: undefined;
+  DiscoverMovies: undefined;
+  DiscoverTv: undefined;
+} & MediaFlowParamList;
 
 export type SearchStackParamList = { Search: undefined } & MediaFlowParamList;
 
-export type LibraryStackParamList = { Library: undefined } & MediaFlowParamList;
+export type LibraryStackParamList = {
+  Library: undefined;
+  CustomLists: undefined;
+} & MediaFlowParamList;
 
 export type SettingsStackParamList = {
   Settings: undefined;

@@ -24,7 +24,7 @@ import type { DiscoverMovieSort, MovieListItem } from '../../services/tmdb/types
 import { ErrorState } from '../../shared/components/ErrorState';
 import { Screen } from '../../shared/components/Screen';
 
-type Nav = NativeStackNavigationProp<HomeStackParamList, 'Discover'>;
+type Nav = NativeStackNavigationProp<HomeStackParamList, 'DiscoverMovies'>;
 
 const SORT_OPTIONS: { key: DiscoverMovieSort; labelKey: string }[] = [
   { key: 'popularity.desc', labelKey: 'discover.sortPopularity' },
@@ -32,7 +32,7 @@ const SORT_OPTIONS: { key: DiscoverMovieSort; labelKey: string }[] = [
   { key: 'primary_release_date.desc', labelKey: 'discover.sortNew' },
 ];
 
-export function DiscoverScreen() {
+export function DiscoverMoviesScreen() {
   const navigation = useNavigation<Nav>();
   const { colors } = useTheme();
   const [genreId, setGenreId] = useState<number | undefined>(undefined);
@@ -90,6 +90,7 @@ export function DiscoverScreen() {
           }
           accessibilityRole="button"
           accessibilityLabel={item.title}
+          accessibilityHint={i18n.t('a11y.opensDetails')}
         >
           <View style={[styles.thumb, { backgroundColor: colors.border }]}>
             {uri ? (
@@ -114,7 +115,7 @@ export function DiscoverScreen() {
     return (
       <Screen>
         <ErrorState
-          message={isAppError(e) ? e.message : 'Failed to load genres'}
+          message={isAppError(e) ? e.message : i18n.t('errors.genresFailed')}
           onRetry={() => void genresQuery.refetch()}
         />
       </Screen>
@@ -126,7 +127,7 @@ export function DiscoverScreen() {
     return (
       <Screen>
         <ErrorState
-          message={isAppError(e) ? e.message : 'Failed to load'}
+          message={isAppError(e) ? e.message : i18n.t('errors.loadFailed')}
           onRetry={() => void discoverQuery.refetch()}
         />
       </Screen>
@@ -148,12 +149,10 @@ export function DiscoverScreen() {
           ]}
           accessibilityRole="button"
           accessibilityState={{ selected: genreId === undefined }}
+          accessibilityLabel={i18n.t('discover.allGenres')}
         >
           <Text
-            style={[
-              styles.chipText,
-              { color: genreId === undefined ? '#fff' : colors.text },
-            ]}
+            style={[styles.chipText, { color: genreId === undefined ? '#fff' : colors.text }]}
           >
             {i18n.t('discover.allGenres')}
           </Text>
@@ -171,10 +170,9 @@ export function DiscoverScreen() {
             ]}
             accessibilityRole="button"
             accessibilityState={{ selected: genreId === g.id }}
+            accessibilityLabel={g.name}
           >
-            <Text
-              style={[styles.chipText, { color: genreId === g.id ? '#fff' : colors.text }]}
-            >
+            <Text style={[styles.chipText, { color: genreId === g.id ? '#fff' : colors.text }]}>
               {g.name}
             </Text>
           </Pressable>
@@ -215,12 +213,10 @@ export function DiscoverScreen() {
             ]}
             accessibilityRole="button"
             accessibilityState={{ selected: sortBy === opt.key }}
+            accessibilityLabel={i18n.t(opt.labelKey)}
           >
             <Text
-              style={[
-                styles.chipText,
-                { color: sortBy === opt.key ? '#fff' : colors.text },
-              ]}
+              style={[styles.chipText, { color: sortBy === opt.key ? '#fff' : colors.text }]}
             >
               {i18n.t(opt.labelKey)}
             </Text>
@@ -247,10 +243,10 @@ export function DiscoverScreen() {
         ListEmptyComponent={
           discoverQuery.isLoading ? (
             <View style={styles.centered}>
-              <ActivityIndicator color={colors.primary} />
+              <ActivityIndicator color={colors.primary} accessibilityLabel={i18n.t('a11y.loading')} />
             </View>
           ) : (
-            <Text style={[styles.empty, { color: colors.text }]}>No results</Text>
+            <Text style={[styles.empty, { color: colors.text }]}>{i18n.t('discover.noResults')}</Text>
           )
         }
         ListFooterComponent={

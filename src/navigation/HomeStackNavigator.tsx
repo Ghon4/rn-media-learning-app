@@ -1,9 +1,11 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { DiscoverScreen } from '../features/discover/DiscoverScreen';
+import { DiscoverMoviesScreen } from '../features/discover/DiscoverMoviesScreen';
+import { DiscoverTvScreen } from '../features/discover/DiscoverTvScreen';
 import { MediaDetailScreen } from '../features/detail/MediaDetailScreen';
 import { HomeScreen } from '../features/home/HomeScreen';
 import { PersonDetailScreen } from '../features/person/PersonDetailScreen';
+import { TvSeasonScreen } from '../features/seasons/TvSeasonScreen';
 import { i18n } from '../i18n';
 
 import type { HomeStackParamList } from './types';
@@ -19,15 +21,20 @@ export function HomeStackNavigator() {
         options={{ title: i18n.t('home.screenTitle') }}
       />
       <Stack.Screen
-        name="Discover"
-        component={DiscoverScreen}
-        options={{ title: i18n.t('discover.title') }}
+        name="DiscoverMovies"
+        component={DiscoverMoviesScreen}
+        options={{ title: i18n.t('discover.titleMovies') }}
+      />
+      <Stack.Screen
+        name="DiscoverTv"
+        component={DiscoverTvScreen}
+        options={{ title: i18n.t('discover.titleTv') }}
       />
       <Stack.Screen
         name="MediaDetail"
         component={MediaDetailScreen}
         options={({ route }) => ({
-          title: route.params.title ?? 'Details',
+          title: route.params.title ?? i18n.t('errors.loadFailed'),
         })}
       />
       <Stack.Screen
@@ -35,6 +42,15 @@ export function HomeStackNavigator() {
         component={PersonDetailScreen}
         options={({ route }) => ({
           title: route.params.name ?? 'Person',
+        })}
+      />
+      <Stack.Screen
+        name="TvSeason"
+        component={TvSeasonScreen}
+        options={({ route }) => ({
+          title: i18n.t('seasons.title', {
+            n: Number(route.params.seasonNumber),
+          }),
         })}
       />
     </Stack.Navigator>

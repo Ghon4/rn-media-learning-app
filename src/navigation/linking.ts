@@ -13,9 +13,11 @@ export const linking: LinkingOptions<RootTabParamList> = {
         path: 'home',
         screens: {
           Home: '',
-          Discover: 'discover',
+          DiscoverMovies: 'discover',
+          DiscoverTv: 'discover/tv',
           MediaDetail: 'media/:mediaType/:id',
           PersonDetail: 'person/:id',
+          TvSeason: 'tv/:tvId/season/:seasonNumber',
         },
       },
       SearchTab: {
@@ -24,14 +26,17 @@ export const linking: LinkingOptions<RootTabParamList> = {
           Search: '',
           MediaDetail: 'media/:mediaType/:id',
           PersonDetail: 'person/:id',
+          TvSeason: 'tv/:tvId/season/:seasonNumber',
         },
       },
       LibraryTab: {
         path: 'library',
         screens: {
           Library: '',
+          CustomLists: 'lists',
           MediaDetail: 'media/:mediaType/:id',
           PersonDetail: 'person/:id',
+          TvSeason: 'tv/:tvId/season/:seasonNumber',
         },
       },
       SettingsTab: {
