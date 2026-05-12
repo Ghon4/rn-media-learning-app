@@ -48,6 +48,8 @@ export type TvDetail = {
   episode_run_time?: number[];
   genres: { id: number; name: string }[];
   first_air_date?: string;
+  /** Present on full TV detail from TMDB */
+  number_of_seasons?: number;
 };
 
 export type SearchMultiResult =
@@ -83,6 +85,30 @@ export type DiscoverMovieSort =
   | 'popularity.desc'
   | 'vote_average.desc'
   | 'primary_release_date.desc';
+
+/** TMDB discover TV sort options */
+export type DiscoverTvSort =
+  | 'popularity.desc'
+  | 'vote_average.desc'
+  | 'first_air_date.desc';
+
+export type TvEpisode = {
+  id: number;
+  episode_number: number;
+  name: string;
+  overview: string;
+  air_date?: string | null;
+  runtime?: number | null;
+};
+
+export type TvSeasonDetail = {
+  id: number;
+  name: string;
+  overview: string;
+  air_date?: string | null;
+  season_number: number;
+  episodes: TvEpisode[];
+};
 
 export type PersonProfile = {
   id: number;

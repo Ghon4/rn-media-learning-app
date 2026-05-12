@@ -2,6 +2,7 @@ import { getWithRetry, tmdbHttp } from '../api/httpClient';
 
 import type {
   DiscoverMovieSort,
+  DiscoverTvSort,
   MovieDetail,
   MovieListItem,
   MovieTvCredits,
@@ -11,6 +12,7 @@ import type {
   SearchMultiResult,
   TvDetail,
   TvListItem,
+  TvSeasonDetail,
   VideosResponse,
 } from './types';
 
@@ -42,6 +44,30 @@ export async function searchMulti(query: string, page = 1) {
   return getWithRetry(() =>
     tmdbHttp
       .get<Paginated<SearchMultiResult>>('/search/multi', { params: { query: q, page } })
+      .then((r) => r.data),
+  );
+}
+
+export async function searchMovie(query: string, page = 1) {
+  const q = query.trim();
+  if (!q) {
+    return { page: 1, results: [] as MovieListItem[], total_pages: 0, total_results: 0 };
+  }
+  return getWithRetry(() =>
+    tmdbHttp
+      .get<Paginated<MovieListItem>>('/search/movie', { params: { query: q, page } })
+      .then((r) => r.data),
+  );
+}
+
+export async function searchTv(query: string, page = 1) {
+  const q = query.trim();
+  if (!q) {
+    return { page: 1, results: [] as TvListItem[], total_pages: 0, total_results: 0 };
+  }
+  return getWithRetry(() =>
+    tmdbHttp
+      .get<Paginated<TvListItem>>('/search/tv', { params: { query: q, page } })
       .then((r) => r.data),
   );
 }
@@ -82,6 +108,12 @@ export async function fetchMovieGenres() {
   );
 }
 
+export async function fetchTvGenres() {
+  return getWithRetry(() =>
+    tmdbHttp.get<{ genres: { id: number; name: string }[] }>('/genre/tv/list').then((r) => r.data),
+  );
+}
+
 export async function discoverMovies(params: {
   page?: number;
   with_genres?: string;
@@ -90,6 +122,63 @@ export async function discoverMovies(params: {
 }) {
   return getWithRetry(() =>
     tmdbHttp.get<Paginated<MovieListItem>>('/discover/movie', { params }).then((r) => r.data),
+  );
+}
+
+export async function discoverTv(params: {
+  page?: number;
+  with_genres?: string;
+  first_air_date_year?: number;
+  sort_by?: DiscoverTvSort;
+}) {
+  return getWithRetry(() =>
+    tmdbHttp.get<Paginated<TvListItem>>('/discover/tv', { params }).then((r) => r.data),
+  );
+}
+
+export async function fetchNowPlayingMovies(page = 1) {
+  return getWithRetry(() =>
+    tmdbHttp
+      .get<Paginated<MovieListItem>>('/movie/now_playing', { params: { page } })
+      .then((r) => r.data),
+  );
+}
+
+export async function fetchUpcomingMovies(page = 1) {
+  return getWithRetry(() =>
+    tmdbHttp
+      .get<Paginated<MovieListItem>>('/movie/upcoming', { params: { page } })
+      .then((r) => r.data),
+  );
+}
+
+export async function fetchTopRatedMovies(page = 1) {
+  return getWithRetry(() =>
+    tmdbHttp
+      .get<Paginated<MovieListItem>>('/movie/top_rated', { params: { page } })
+      .then((r) => r.data),
+  );
+}
+
+export async function fetchMovieRecommendations(id: number, page = 1) {
+  return getWithRetry(() =>
+    tmdbHttp
+      .get<Paginated<MovieListItem>>(`/movie/${id}/recommendations`, { params: { page } })
+      .then((r) => r.data),
+  );
+}
+
+export async function fetchTvRecommendations(id: number, page = 1) {
+  return getWithRetry(() =>
+    tmdbHttp
+      .get<Paginated<TvListItem>>(`/tv/${id}/recommendations`, { params: { page } })
+      .then((r) => r.data),
+  );
+}
+
+export async function fetchTvSeasonDetail(tvId: number, seasonNumber: number) {
+  return getWithRetry(() =>
+    tmdbHttp.get<TvSeasonDetail>(`/tv/${tvId}/season/${seasonNumber}`).then((r) => r.data),
   );
 }
 
